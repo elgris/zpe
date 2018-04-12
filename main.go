@@ -10,11 +10,8 @@ import (
 	"github.com/elgris/zpe/client/operations"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/kr/pretty"
 	yaml "gopkg.in/yaml.v2"
 )
-
-var defaultLimit int64 = 100
 
 type AppConfig struct {
 	ZipkinURL string        `yaml:"zipkin_url"`
@@ -58,13 +55,10 @@ func main() {
 	// 1. Get data from Zipkin
 	// 2. Expose data for prometheus
 
-	// Config:
-	// - zipkin configuration (URL, auth, etc)
-	// - map: [metric_name] --> [zipkin query]
-
 	// Dependencies:
 	// - prometheus
 
+	select {}
 }
 
 type ScraperConfig struct {
@@ -98,8 +92,6 @@ func runScraper(config ScraperConfig) {
 
 			<-time.After(config.Period)
 			// TODO: add stop by command
-
-			pretty.Println("RETRIEVED: ", traces)
 
 			previousEndTimestampMs = endTimestampMs
 		}
