@@ -1,0 +1,8 @@
+zipkin_url: 127.0.0.1
+period: 5s
+queries:
+  total_errors:
+    query: "error"
+  loggable_activity:
+    service_name: "frontend"
+    query: "operation=loggable_activity"
