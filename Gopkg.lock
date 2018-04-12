@@ -90,6 +90,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/kr/pretty"
+  packages = ["."]
+  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/kr/text"
+  packages = ["."]
+  revision = "7cafcd837844e784b526369c9bce262804aebc60"
+
+[[projects]]
+  branch = "master"
   name = "github.com/mailru/easyjson"
   packages = [
     "buffer",
@@ -154,6 +166,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7066b3db1125614a89e6a57970be9d0291ab5d9106424cb2e41544a7344aeacd"
+  inputs-digest = "2693eb4846af35dcca43fe68accf2a9c38b9eff15bc8984d082e38bf8df005ca"
   solver-name = "gps-cdcl"
   solver-version = 1
