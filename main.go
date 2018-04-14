@@ -24,8 +24,9 @@ type AppConfig struct {
 	ZipkinURL string        `yaml:"zipkin_url"`
 	Period    time.Duration `yaml:"period"`
 	Queries   map[string]struct {
-		Query       string `yaml:"query"`
-		ServiceName string `yaml:"service_name"`
+		Query            string    `yaml:"query"`
+		ServiceName      string    `yaml:"service_name"`
+		HistogramBuckets []float64 `yaml:"histogram_buckets"`
 	} `yaml:"queries"`
 }
 
@@ -52,9 +53,10 @@ func main() {
 			MetricName:  metric,
 			ServiceName: queryConfig.ServiceName,
 			Query:       queryConfig.Query,
-			Period:      config.Period,
-			Client:      zipkin,
-			QueryLimit:  1000,
+			DurationsHistogramBuckets: queryConfig.HistogramBuckets,
+			Period:     config.Period,
+			Client:     zipkin,
+			QueryLimit: 1000,
 		}
 		runScraper(scraperConfig)
 	}
@@ -66,18 +68,20 @@ func main() {
 }
 
 type ScraperConfig struct {
-	MetricName  string
-	ServiceName string
-	Query       string
-	Period      time.Duration
-	Client      *client.Zipkin
-	QueryLimit  int64
+	MetricName                string
+	ServiceName               string
+	Query                     string
+	Period                    time.Duration
+	Client                    *client.Zipkin
+	QueryLimit                int64
+	DurationsHistogramBuckets []float64
 }
 
 func runScraper(config ScraperConfig) {
 	traceDurationsHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name: config.MetricName + "_durations_histogram_ms",
-		Help: "Latency distributions for " + config.MetricName,
+		Name:    config.MetricName + "_durations_histogram_ms",
+		Help:    "Latency distributions for " + config.MetricName,
+		Buckets: config.DurationsHistogramBuckets,
 	})
 	traceCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: config.MetricName + "_counter",

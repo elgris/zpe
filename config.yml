@@ -4,5 +4,7 @@ period: 5s
 queries:
   total_errors:
     query: "error"
+    histogram_buckets: [300, 600, 1000]
   loggable_activity:
     service_name: "log-message-processor"
+    histogram_buckets: [1000, 3000, 5000, 7000, 9000, 11000, 13000]
