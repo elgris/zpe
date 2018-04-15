@@ -24,9 +24,8 @@ type AppConfig struct {
 	ZipkinURL string        `yaml:"zipkin_url"`
 	Period    time.Duration `yaml:"period"`
 	Queries   map[string]struct {
-		Query            string    `yaml:"query"`
-		ServiceName      string    `yaml:"service_name"`
-		HistogramBuckets []float64 `yaml:"histogram_buckets"`
+		Query       string `yaml:"query"`
+		ServiceName string `yaml:"service_name"`
 	} `yaml:"queries"`
 }
 
@@ -53,10 +52,9 @@ func main() {
 			MetricName:  metric,
 			ServiceName: queryConfig.ServiceName,
 			Query:       queryConfig.Query,
-			DurationsHistogramBuckets: queryConfig.HistogramBuckets,
-			Period:     config.Period,
-			Client:     zipkin,
-			QueryLimit: 1000,
+			Period:      config.Period,
+			Client:      zipkin,
+			QueryLimit:  1000,
 		}
 		runScraper(scraperConfig)
 	}
@@ -68,27 +66,25 @@ func main() {
 }
 
 type ScraperConfig struct {
-	MetricName                string
-	ServiceName               string
-	Query                     string
-	Period                    time.Duration
-	Client                    *client.Zipkin
-	QueryLimit                int64
-	DurationsHistogramBuckets []float64
+	MetricName  string
+	ServiceName string
+	Query       string
+	Period      time.Duration
+	Client      *client.Zipkin
+	QueryLimit  int64
 }
 
 func runScraper(config ScraperConfig) {
-	traceDurationsHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    config.MetricName + "_durations_histogram_ms",
-		Help:    "Latency distributions for " + config.MetricName,
-		Buckets: config.DurationsHistogramBuckets,
+	traceDurationsSummary := prometheus.NewSummary(prometheus.SummaryOpts{
+		Name: config.MetricName + "_durations_summary",
+		Help: "Latency distributions for " + config.MetricName,
 	})
 	traceCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: config.MetricName + "_counter",
 		Help: "Counter for traces for" + config.MetricName,
 	})
 
-	prometheus.MustRegister(traceDurationsHistogram)
+	prometheus.MustRegister(traceDurationsSummary)
 	prometheus.MustRegister(traceCounter)
 	go func() {
 		previousEndTimestampMs := (time.Now().UnixNano() - config.Period.Nanoseconds()) / 1e6
@@ -109,7 +105,7 @@ func runScraper(config ScraperConfig) {
 				for _, trace := range response.Payload {
 					traceDuration := Trace(trace).Duration()
 					pretty.Println("Duration", traceDuration)
-					traceDurationsHistogram.Observe(float64(traceDuration))
+					traceDurationsSummary.Observe(float64(traceDuration))
 					traceCounter.Inc()
 				}
 			} else {
