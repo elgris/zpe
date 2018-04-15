@@ -2,23 +2,21 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/elgris/zpe/client"
-	"github.com/elgris/zpe/client/operations"
-	"github.com/elgris/zpe/models"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/kr/pretty"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	yaml "gopkg.in/yaml.v2"
 )
 
+// AppConfig specifies all the necessary properties for Zipkin-Prometheus extractor
+// to run
 type AppConfig struct {
 	Listen    string        `yaml:"listen"`
 	ZipkinURL string        `yaml:"zipkin_url"`
@@ -33,15 +31,9 @@ func main() {
 	configFilePath := flag.String("config", "config.yml", "path to config file")
 	flag.Parse()
 
-	configFile, err := ioutil.ReadFile(*configFilePath)
+	config, err := loadConfig(*configFilePath)
 	if err != nil {
-		log.Fatalf("could not read configuration file '%s': %s", *configFilePath, err.Error())
-	}
-
-	config := AppConfig{}
-	err = yaml.Unmarshal(configFile, &config)
-	if err != nil {
-		log.Fatalf("could not unmarshal configuration from file '%s': %s", *configFilePath, err.Error())
+		log.Fatal(err.Error())
 	}
 
 	transport := httptransport.New(config.ZipkinURL, "/api/v2", []string{"http"})
@@ -56,7 +48,7 @@ func main() {
 			Client:      zipkin,
 			QueryLimit:  1000,
 		}
-		runScraper(scraperConfig)
+		RunScraper(scraperConfig)
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
@@ -65,78 +57,17 @@ func main() {
 	log.Fatal(http.ListenAndServe(config.Listen, nil))
 }
 
-type ScraperConfig struct {
-	MetricName  string
-	ServiceName string
-	Query       string
-	Period      time.Duration
-	Client      *client.Zipkin
-	QueryLimit  int64
-}
-
-func runScraper(config ScraperConfig) {
-	traceDurationsSummary := prometheus.NewSummary(prometheus.SummaryOpts{
-		Name: config.MetricName + "_durations_summary",
-		Help: "Latency distributions for " + config.MetricName,
-	})
-	traceCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: config.MetricName + "_counter",
-		Help: "Counter for traces for" + config.MetricName,
-	})
-
-	prometheus.MustRegister(traceDurationsSummary)
-	prometheus.MustRegister(traceCounter)
-	go func() {
-		previousEndTimestampMs := (time.Now().UnixNano() - config.Period.Nanoseconds()) / 1e6
-
-		for {
-			endTimestampMs := time.Now().UnixNano() / 1e6
-			lookbackMs := endTimestampMs - previousEndTimestampMs
-
-			params := operations.NewGetTracesParams()
-			params.ServiceName = &config.ServiceName
-			params.AnnotationQuery = &config.Query
-			params.Lookback = &lookbackMs
-			params.EndTs = &endTimestampMs
-			params.Limit = &config.QueryLimit
-
-			response, err := config.Client.Operations.GetTraces(params)
-			if err == nil {
-				for _, trace := range response.Payload {
-					traceDuration := Trace(trace).Duration()
-					pretty.Println("Duration", traceDuration)
-					traceDurationsSummary.Observe(float64(traceDuration))
-					traceCounter.Inc()
-				}
-			} else {
-				log.Printf("[ERROR] could not fetch the traces: %s", err.Error())
-			}
-
-			<-time.After(config.Period)
-			// TODO: add stop by command
-
-			previousEndTimestampMs = endTimestampMs
-		}
-	}()
-}
-
-type Trace models.Trace
-
-func (t Trace) Len() int           { return len(t) }
-func (t Trace) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t Trace) Less(i, j int) bool { return t[i].Timestamp < t[j].Timestamp }
-
-func (t Trace) Duration() int64 {
-	if len(t) == 0 {
-		return 0
+func loadConfig(configFilePath string) (*AppConfig, error) {
+	configFile, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read configuration file '%s': %s", configFilePath, err.Error())
 	}
 
-	if len(t) == 1 {
-		return t[0].Duration / 1000
+	config := &AppConfig{}
+	err = yaml.Unmarshal(configFile, config)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshal configuration from file '%s': %s", configFilePath, err.Error())
 	}
 
-	sort.Sort(t) // TODO: don't call sort.Sort every time
-	last := len(t) - 1
-
-	return (t[last].Timestamp - t[0].Timestamp + t[last].Duration) / 1000
+	return config, nil
 }
