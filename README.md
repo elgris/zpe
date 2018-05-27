@@ -14,4 +14,6 @@ queries:   # queries to run against Zipkin. Each query is represented by:
     query: "error"  # Zipkin query (e.g. "http.path=/foo/bar")
   loggable_activity:
     service_name: "log-message-processor" # and/or service name
+    histogram_buckets: [200.0, 500.0, 1000.0, 2000.0] # histogram buckets for metric duration
+    # they should be manually identified and set in order to define latency SLO
 ```

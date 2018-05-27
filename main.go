@@ -22,8 +22,9 @@ type AppConfig struct {
 	ZipkinURL string        `yaml:"zipkin_url"`
 	Period    time.Duration `yaml:"period"`
 	Queries   map[string]struct {
-		Query       string `yaml:"query"`
-		ServiceName string `yaml:"service_name"`
+		Query            string    `yaml:"query"`
+		ServiceName      string    `yaml:"service_name"`
+		HistogramBuckets []float64 `yaml:"histogram_buckets"`
 	} `yaml:"queries"`
 }
 
@@ -41,12 +42,13 @@ func main() {
 
 	for metric, queryConfig := range config.Queries {
 		scraperConfig := ScraperConfig{
-			MetricName:  metric,
-			ServiceName: queryConfig.ServiceName,
-			Query:       queryConfig.Query,
-			Period:      config.Period,
-			Client:      zipkin,
-			QueryLimit:  1000,
+			MetricName:       metric,
+			ServiceName:      queryConfig.ServiceName,
+			Query:            queryConfig.Query,
+			Period:           config.Period,
+			Client:           zipkin,
+			QueryLimit:       1000,
+			HistogramBuckets: queryConfig.HistogramBuckets,
 		}
 		RunScraper(scraperConfig)
 	}

@@ -16,26 +16,28 @@ import (
 // for given ServiceName, constrained by Query.
 // MetricName is used for exposing Prometheus metrics
 type ScraperConfig struct {
-	MetricName  string
-	ServiceName string
-	Query       string
-	Period      time.Duration
-	Client      *client.Zipkin
-	QueryLimit  int64
+	MetricName       string
+	ServiceName      string
+	Query            string
+	Period           time.Duration
+	Client           *client.Zipkin
+	QueryLimit       int64
+	HistogramBuckets []float64
 }
 
-// Start scraper in background using given configuration
+// RunScraper starts scraper in background using given configuration
 func RunScraper(config ScraperConfig) {
-	traceDurationsSummary := prometheus.NewSummary(prometheus.SummaryOpts{
-		Name: config.MetricName + "_durations_summary",
-		Help: "Latency distributions for " + config.MetricName,
+	traceDurationsHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    config.MetricName + "_durations_histogram",
+		Buckets: config.HistogramBuckets,
+		Help:    "Latency distributions for " + config.MetricName,
 	})
 	traceCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: config.MetricName + "_counter",
 		Help: "Counter for traces for" + config.MetricName,
 	})
 
-	prometheus.MustRegister(traceDurationsSummary)
+	prometheus.MustRegister(traceDurationsHistogram)
 	prometheus.MustRegister(traceCounter)
 	go func() {
 		previousEndTimestampMs := (time.Now().UnixNano() - config.Period.Nanoseconds()) / 1e6
@@ -55,7 +57,7 @@ func RunScraper(config ScraperConfig) {
 			if err == nil {
 				for _, trace := range response.Payload {
 					traceDuration := Trace(trace).Duration()
-					traceDurationsSummary.Observe(float64(traceDuration))
+					traceDurationsHistogram.Observe(float64(traceDuration))
 					traceCounter.Inc()
 				}
 			} else {
